@@ -8,6 +8,9 @@ let totalPages = 0;
 let pageFlipping = false;
 let swRegistration = null;
 
+// API Configuration - PRODUCTION URL
+const API_URL = 'https://backendcode-with-destiny.onrender.com';
+
 // EmailJS Configuration
 const EMAILJS_SERVICE_ID = 'service_fg2hujo';
 const EMAILJS_TEMPLATE_ID = 'template_mbbw2cc';
@@ -1004,7 +1007,7 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
         // Step 1: Create order via backend
         console.log('📝 Creating order...');
         
-        const orderResponse = await fetch('https://backendcode-with-destiny.onrender.com/api/orders/create', {
+        const orderResponse = await fetch(`${API_URL}/api/orders/create`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1035,15 +1038,15 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
         
         const orderId = orderData.order_id;
         
-        // If free purchase, send book directly
+        // If free purchase, send book directly via EmailJS
         if (orderData.is_free) {
-            console.log('🎁 Free book - sending directly');
-            await sendBookViaBackend(orderId, email, name, 0);
+            console.log('🎁 Free book - sending via EmailJS');
+            await sendBookViaEmailJS(email, name, orderId, 0);
             showSuccessMessage(form, successMessage, email, whatsapp, submitBtn);
             return;
         }
         
-        // Step 2: Initialize Razorpay payment
+        // Step 2: Initialize Razorpay payment for paid orders
         console.log('💳 Initializing Razorpay payment...');
         
         const options = {
@@ -1075,8 +1078,6 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                     name,
                     amount
                 );
-                
-                showSuccessMessage(form, successMessage, email, whatsapp, submitBtn);
             },
             modal: {
                 ondismiss: function() {
@@ -1107,7 +1108,7 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
     try {
         console.log('🔐 Verifying payment...');
         
-        const verifyResponse = await fetch('https://backendcode-with-destiny.onrender.com/api/payments/verify', {
+        const verifyResponse = await fetch(`${API_URL}/api/payments/verify`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1136,8 +1137,15 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         
         console.log('✅ Payment verified successfully!');
         
-        // Send book to user with EmailJS
-        await sendBookViaBackend(orderId, email, userName, amount);
+        // ✅ SEND EMAIL VIA EMAILJS AFTER PAYMENT VERIFIED
+        await sendBookViaEmailJS(email, userName, orderId, amount);
+        
+        // Show success message
+        const form = document.getElementById('purchase-form');
+        const successMessage = document.getElementById('success-message');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
         
     } catch (error) {
         console.error('❌ Payment verification error:', error);
@@ -1145,33 +1153,29 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
     }
 }
 
-async function sendBookViaBackend(orderId, email, userName = 'Valued Customer', amount = 0) {
+// ✅ NEW FUNCTION: Send book via EmailJS
+async function sendBookViaEmailJS(email, userName, orderId, amount) {
     try {
         console.log('📧 Sending book via EmailJS...');
         
-        // Send email via EmailJS
+        const templateParams = {
+            to_email: email,
+            user_name: userName
+        };
+
         const response = await emailjs.send(
             EMAILJS_SERVICE_ID,
             EMAILJS_TEMPLATE_ID,
-            {
-                to_email: email,
-                user_name: userName,
-                order_id: orderId,
-                amount: amount
-            }
+            templateParams
         );
         
         if (response.status === 200) {
-            console.log('✅ Email sent successfully via EmailJS!');
+            console.log('✅ Email sent successfully!');
             return true;
-        } else {
-            console.warn('⚠️ Email send response:', response);
-            return false;
         }
         
     } catch (error) {
-        console.error('❌ Error sending email:', error);
-        alert('✅ Payment successful! Book will be sent to your email shortly.');
+        console.error('❌ Email error:', error);
         return false;
     }
 }
