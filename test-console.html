@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Console Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-left: 4px solid #2196f3;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #2196f3;
+            color: white;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+        .test-element {
+            border: 2px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            background: #f9f9f9;
+            transition: all 0.2s;
+        }
+        .test-element:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .test-element.clicked {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Book Preview Console Test</h1>
+        
+        <div class="info">
+            <strong>✅ Open your browser's Developer Console (F12) and watch the logs while clicking below</strong>
+        </div>
+        
+        <h2>Test Elements:</h2>
+        <button onclick="testOpenBook()">📖 Test Open Book Button</button>
+        <button onclick="testPreviewClick()">📸 Test Preview Thumbnail Click</button>
+        <button onclick="testModalClass()">📌 Test Modal Class Toggle</button>
+        
+        <h2>Interactive Preview Pages (Click Me!):</h2>
+        <div class="test-element" onclick="handlePreviewClick(1)">📄 Preview Page 1</div>
+        <div class="test-element" onclick="handlePreviewClick(2)">📄 Preview Page 2</div>
+        <div class="test-element" onclick="handlePreviewClick(3)">📄 Preview Page 3</div>
+        <div class="test-element" onclick="handlePreviewClick(4)">📄 Preview Page 4</div>
+        
+        <h2>Console Output:</h2>
+        <div class="console-output" id="console-output"></div>
+        
+        <button onclick="clearConsole()" style="background: #ff9800;">🗑️ Clear Console</button>
+    </div>
+
+    <script>
+        let consoleLogs = [];
+        
+        // Override console methods to capture output
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function addLog(type, msg) {
+            const timestamp = new Date().toLocaleTimeString();
+            const fullMsg = `[${timestamp}] ${msg}`;
+            consoleLogs.push(fullMsg);
+            
+            const output = document.getElementById('console-output');
+            output.textContent = consoleLogs.join('\n');
+            output.scrollTop = output.scrollHeight;
+            
+            // Also log to actual console
+            if (type === 'log') originalLog(msg);
+            else if (type === 'warn') originalWarn(msg);
+            else if (type === 'error') originalError(msg);
+        }
+        
+        console.log = function(...args) {
+            addLog('log', args.join(' '));
+        };
+        
+        console.warn = function(...args) {
+            addLog('warn', '⚠️ ' + args.join(' '));
+        };
+        
+        console.error = function(...args) {
+            addLog('error', '❌ ' + args.join(' '));
+        };
+        
+        function clearConsole() {
+            consoleLogs = [];
+            document.getElementById('console-output').textContent = 'Console cleared...';
+        }
+        
+        function testOpenBook() {
+            console.log('🧪 Testing Open Book Functionality');
+            console.log('Looking for element with id="open-book-preview"...');
+            const btn = document.getElementById('open-book-preview');
+            if (btn) {
+                console.log('✅ Button found! Simulating click...');
+                btn.click();
+            } else {
+                console.log('❌ Button NOT found (id="open-book-preview" does not exist)');
+            }
+        }
+        
+        function testPreviewClick() {
+            console.log('🧪 Testing Preview Click Functionality');
+            const previews = document.querySelectorAll('.preview-page');
+            console.log(`📸 Found ${previews.length} elements with class "preview-page"`);
+            if (previews.length > 0) {
+                console.log('✅ Preview elements found! Simulating click on first...');
+                previews[0].click();
+            } else {
+                console.log('❌ No preview elements found');
+            }
+        }
+        
+        function testModalClass() {
+            console.log('🧪 Testing Modal Class Toggle');
+            const modal = document.getElementById('book-modal');
+            if (!modal) {
+                console.log('❌ Modal element NOT found (id="book-modal")');
+                return;
+            }
+            console.log('✅ Modal found. Current classes:', modal.className);
+            modal.classList.add('active');
+            console.log('Added "active" class. New classes:', modal.className);
+            const computed = window.getComputedStyle(modal);
+            console.log('Computed display style:', computed.display);
+            console.log('Computed visibility:', computed.visibility);
+        }
+        
+        function handlePreviewClick(pageNum) {
+            const el = event.target;
+            el.classList.add('clicked');
+            console.log(`👆 Clicked preview page ${pageNum}`);
+            console.log('Element clicked:', el);
+            
+            // Try to trigger main page preview
+            const mainPreviewPages = document.querySelectorAll('.preview-page');
+            if (mainPreviewPages.length > 0) {
+                console.log(`Found ${mainPreviewPages.length} actual preview-page elements on main page`);
+                mainPreviewPages[pageNum - 1]?.click();
+            }
+        }
+        
+        // Log initial state
+        window.addEventListener('load', () => {
+            console.log('🚀 Page loaded, checking DOM elements...');
+            console.log('✅ Document ready at ' + new Date().toLocaleTimeString());
+            
+            const openBtn = document.getElementById('open-book-preview');
+            const modal = document.getElementById('book-modal');
+            const previews = document.querySelectorAll('.preview-page');
+            
+            console.log(`📍 Element status: Button=${openBtn?'✅':'❌'}, Modal=${modal?'✅':'❌'}, Previews=${previews.length}`);
+        });
+    </script>
+</body>
+</html>
