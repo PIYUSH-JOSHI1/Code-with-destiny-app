@@ -1113,11 +1113,14 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify({
                 razorpay_order_id: razorpayOrderId,
                 razorpay_payment_id: razorpayPaymentId,
                 razorpay_signature: razorpaySignature,
-                order_id: orderId
+                order_id: orderId,
+                email: email,
+                user_name: userName
             })
         });
         
@@ -1126,6 +1129,10 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         if (!verifyResponse.ok) {
             const errorText = await verifyResponse.text();
             console.error('❌ Server error response:', errorText);
+            
+            if (verifyResponse.status === 0 || verifyResponse.headers.get('content-type')?.includes('text/html')) {
+                throw new Error('🌐 Backend server error. Please ensure your backend is running and CORS is configured.\n\nBackend URL: ' + API_URL + '\n\nContact support if this persists.');
+            }
             throw new Error(`Server error: ${verifyResponse.status} ${verifyResponse.statusText}`);
         }
         
@@ -1138,29 +1145,32 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         console.log('✅ Payment verified successfully!');
         
         // ✅ SEND EMAIL VIA EMAILJS AFTER PAYMENT VERIFIED
-        await sendBookViaEmailJS(email, userName, orderId, amount);
+        const emailSent = await sendBookViaEmailJS(email, userName, orderId, amount);
         
         // Show success message
         const form = document.getElementById('purchase-form');
         const successMessage = document.getElementById('success-message');
         const submitBtn = form.querySelector('button[type="submit"]');
         
-        showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
+        showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn, emailSent);
         
     } catch (error) {
         console.error('❌ Payment verification error:', error);
-        alert('❌ Payment verification failed: ' + error.message);
+        alert('❌ Payment verification failed:\n\n' + error.message);
     }
 }
 
 // ✅ NEW FUNCTION: Send book via EmailJS
 async function sendBookViaEmailJS(email, userName, orderId, amount) {
     try {
-        console.log('📧 Sending book via EmailJS...');
+        console.log('📧 Sending book via EmailJS to:', email);
         
         const templateParams = {
             to_email: email,
-            user_name: userName
+            user_name: userName,
+            order_id: orderId,
+            amount: amount,
+            purchase_date: new Date().toLocaleDateString()
         };
 
         const response = await emailjs.send(
@@ -1169,18 +1179,24 @@ async function sendBookViaEmailJS(email, userName, orderId, amount) {
             templateParams
         );
         
+        console.log('📧 EmailJS response:', response);
+        
         if (response.status === 200) {
             console.log('✅ Email sent successfully!');
             return true;
         }
         
+        return false;
+        
     } catch (error) {
         console.error('❌ Email error:', error);
+        console.error('EmailJS Service ID:', EMAILJS_SERVICE_ID);
+        console.error('EmailJS Template ID:', EMAILJS_TEMPLATE_ID);
         return false;
     }
 }
 
-function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn) {
+function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn, emailSent = true) {
     // Hide form
     form.style.display = 'none';
     
@@ -1190,6 +1206,15 @@ function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn) {
     // Update success message content
     document.getElementById('success-email').textContent = email;
     document.getElementById('success-whatsapp').textContent = '📱 ' + whatsapp;
+    
+    // Add email status indicator
+    const emailStatus = emailSent ? '✅ Email sent!' : '⚠️ Check email after page reload';
+    const statusElement = document.createElement('p');
+    statusElement.style.marginTop = '10px';
+    statusElement.style.fontSize = '14px';
+    statusElement.style.color = emailSent ? '#27ae60' : '#f39c12';
+    statusElement.textContent = '📬 ' + emailStatus;
+    successMessage.appendChild(statusElement);
     
     // Add celebration animation
     createCelebrationEffect();
