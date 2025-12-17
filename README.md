@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- Animated Header -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,12,18,20,24&height=300&section=header&text=Code%20With%20Destiny&fontSize=70&fontColor=8B2500&animation=twinkling&fontAlignY=38&desc=Every%20line%20of%20code%20changed%20my%20destiny&descAlignY=55&descSize=25" width="100%"/>
+<img src="bookcover.jpeg" width="100%"/>
 
 <!-- 3D Rotating Badge -->
 <picture>
