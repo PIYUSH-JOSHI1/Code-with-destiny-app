@@ -6,7 +6,7 @@
 <!-- 3D Rotating Badge -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com?font=Fira+Code&size=32&duration=3000&pause=1000&color=FF6B35&center=true&vCenter=true&multiline=true&repeat=true&random=false&width=800&height=100&lines=by+Piyush+Joshi;%F0%9F%8D%82+Engineering+%7C+Life+%7C+Growth+%F0%9F%8D%82">
-  <img alt="Typing SVG" src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=32&duration=3000&pause=1000&color=FF6B35&center=true&vCenter=true&multiline=true&repeat=true&random=false&width=800&height=100&lines=by+Piyush+Joshi;%F0%9F%8D%82+Engineering+%7C+Life+%7C+Growth+%F0%9F%8D%82" />
+
 </picture>
 
 <br/>
