@@ -1527,3 +1527,46 @@ window.testPDFLoad = async function() {
         return false;
     }
 };
+
+// Add this function after line 27 (after the GSAP library check):
+async function sendBookViaEmailJS(email, userName, orderId, amount) {
+    try {
+        console.log('📧 Sending book via EmailJS...');
+        
+        const templateParams = {
+            to_email: email,
+            user_name: userName || 'Valued Customer',
+            order_id: orderId,
+            amount: amount,
+            book_link: 'https://drive.google.com/file/d/1lBH-fdCcyfp6_ZUpph6nviZklm5d3Mwt/view?usp=drive_link',
+            purchase_date: new Date().toLocaleDateString(),
+            current_date: new Date().toLocaleDateString()
+        };
+
+        const response = await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams
+        );
+        
+        console.log('✅ EmailJS sent successfully:', response);
+        
+        // Show success message after email is sent
+        const form = document.getElementById('purchase-form');
+        const successMessage = document.getElementById('success-message');
+        const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+        
+        if (form && successMessage) {
+            showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
+        } else {
+            alert('✅ Book sent successfully! Check your email.');
+        }
+        
+        return response.status === 200;
+        
+    } catch (error) {
+        console.error('❌ EmailJS error:', error);
+        alert('📧 Email sending failed, but your order is recorded. Please contact support with Order ID: ' + orderId);
+        return false;
+    }
+}
