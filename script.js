@@ -1140,56 +1140,47 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         // ✅ SEND EMAIL VIA EMAILJS AFTER PAYMENT VERIFIED
         await sendBookViaEmailJS(email, userName, orderId, amount);
         
-        // Show success message
+        // <CHANGE> Get elements with null checks
         const form = document.getElementById('purchase-form');
         const successMessage = document.getElementById('success-message');
-        const submitBtn = form.querySelector('button[type="submit"]');
+        const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
         
-        showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
-        
-    } catch (error) {
-        console.error('❌ Payment verification error:', error);
-        alert('❌ Payment verification failed: ' + error.message);
-    }
-}
-
-// ✅ NEW FUNCTION: Send book via EmailJS
-async function sendBookViaEmailJS(email, userName, orderId, amount) {
-    try {
-        console.log('📧 Sending book via EmailJS...');
-        
-        const templateParams = {
-            to_email: email,
-            user_name: userName
-        };
-
-        const response = await emailjs.send(
-            EMAILJS_SERVICE_ID,
-            EMAILJS_TEMPLATE_ID,
-            templateParams
-        );
-        
-        if (response.status === 200) {
-            console.log('✅ Email sent successfully!');
-            return true;
+        // <CHANGE> Only call showSuccessMessage if elements exist
+        if (form && successMessage) {
+            showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
+        } else {
+            // Fallback: show alert if DOM elements not found
+            alert('✅ Payment successful! Check your email for the book.');
         }
         
     } catch (error) {
-        console.error('❌ Email error:', error);
-        return false;
+        console.error('❌ Payment verification error:', error);
+        alert('❌ Payment verification failed:\n\n' + error.message);
     }
 }
 
+// <CHANGE> Add null checks to showSuccessMessage
 function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn) {
     // Hide form
-    form.style.display = 'none';
+    if (form) {
+        form.style.display = 'none';
+    }
     
     // Show success message
-    successMessage.style.display = 'block';
+    if (successMessage) {
+        successMessage.style.display = 'block';
+    }
     
-    // Update success message content
-    document.getElementById('success-email').textContent = email;
-    document.getElementById('success-whatsapp').textContent = '📱 ' + whatsapp;
+    // <CHANGE> Update success message content with null checks
+    const successEmailEl = document.getElementById('success-email');
+    const successWhatsappEl = document.getElementById('success-whatsapp');
+    
+    if (successEmailEl) {
+        successEmailEl.textContent = email;
+    }
+    if (successWhatsappEl) {
+        successWhatsappEl.textContent = '📱 ' + whatsapp;
+    }
     
     // Add celebration animation
     createCelebrationEffect();
