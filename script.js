@@ -19,6 +19,15 @@ const EMAILJS_PUBLIC_KEY = 'C-UaBjlMKdLfR-XjR';
 // Initialize EmailJS
 emailjs.init(EMAILJS_PUBLIC_KEY);
 
+// Verify required libraries are loaded
+if (typeof emailjs === 'undefined') {
+    console.error('❌ EmailJS library not loaded!');
+}
+
+if (typeof gsap === 'undefined') {
+    console.warn('⚠️ GSAP library not loaded - some animations may not work');
+}
+
 // Initialize GSAP plugins
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -1051,7 +1060,7 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
         
         const options = {
             key: orderData.razorpay_key_id,
-            amount: amount * 100, // Amount in paise
+            amount: amount * 100,
             currency: "INR",
             name: "Code with Destiny",
             description: "Book Purchase",
@@ -1065,10 +1074,27 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
             theme: {
                 color: "#B8462E"
             },
+            // ✅ Add mobile-specific options:
+            modal: {
+                ondismiss: function() {
+                    console.log('❌ Payment cancelled by user');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Get the Book';
+                },
+                confirm_close: true,
+                escape: false,
+                backdropclose: false
+            },
+            // ✅ Better mobile handling:
+            remember_customer: false,
+            readonly: {
+                email: true,
+                contact: true,
+                name: true
+            },
             handler: async function(response) {
                 console.log('✅ Razorpay response:', response);
                 
-                // Step 3: Verify payment with backend
                 await verifyPaymentViaBackend(
                     response.razorpay_order_id,
                     response.razorpay_payment_id,
@@ -1078,13 +1104,6 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                     name,
                     amount
                 );
-            },
-            modal: {
-                ondismiss: function() {
-                    console.log('❌ Payment cancelled by user');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Get the Book';
-                }
             }
         };
         
@@ -1154,8 +1173,19 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         }
         
     } catch (error) {
-        console.error('✅ Payment successful! Check your email for the book.:', error);
-        alert('✅ Payment successful! Check your email for the book.' + error.message);
+        console.error('❌ Payment verification error:', error);
+        
+        // Better error message for users
+        let errorMessage = 'Payment verification failed';
+        if (error.message.includes('fetch')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message.includes('CORS')) {
+            errorMessage = 'Connection error. Please try again or contact support.';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        alert('❌ ' + errorMessage);
     }
 }
 
@@ -1497,17 +1527,3 @@ window.testPDFLoad = async function() {
         return false;
     }
 };
-
-console.log('💡 Tip: Run testPDFLoad() in console to test PDF loading manually');
-
-let isScrolling;
-
-window.addEventListener('scroll', () => {
-  document.body.classList.add('scrolling');
-
-  clearTimeout(isScrolling);
-  isScrolling = setTimeout(() => {
-    document.body.classList.remove('scrolling');
-  }, 300); // Adjust timeout as needed
-});
-
