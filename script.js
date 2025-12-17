@@ -1005,8 +1005,15 @@ function initializeForm() {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
             
-            // Create order via backend
-            createOrderViaBackend(name, email, whatsapp, amount, form, successMessage, submitBtn);
+            // Create order via backend with error handling
+            try {
+                createOrderViaBackend(name, email, whatsapp, amount, form, successMessage, submitBtn);
+            } catch (error) {
+                console.error('❌ Form submission error:', error);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Get the Book';
+                alert('❌ Error: ' + error.message);
+            }
         });
     }
 }
@@ -1058,6 +1065,20 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
         // Step 2: Initialize Razorpay payment for paid orders
         console.log('💳 Initializing Razorpay payment...');
         
+        // Store Razorpay instance in outer scope for modal control
+        let razorpayInstance = null;
+        
+        // Cleanup function to force close modal
+        const forceCloseModal = () => {
+            try {
+                if (razorpayInstance && razorpayInstance.close) {
+                    razorpayInstance.close();
+                }
+            } catch (e) {
+                console.warn('Modal close error:', e);
+            }
+        };
+        
         const options = {
             key: orderData.razorpay_key_id,
             amount: amount * 100,
@@ -1095,31 +1116,50 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
             handler: async function(response) {
                 console.log('✅ Razorpay response:', response);
                 
-                await verifyPaymentViaBackend(
-                    response.razorpay_order_id,
-                    response.razorpay_payment_id,
-                    response.razorpay_signature,
-                    orderId,
-                    email,
-                    name,
-                    amount
-                );
+                try {
+                    await verifyPaymentViaBackend(
+                        response.razorpay_order_id,
+                        response.razorpay_payment_id,
+                        response.razorpay_signature,
+                        orderId,
+                        email,
+                        name,
+                        amount
+                    );
+                } catch (error) {
+                    console.error('❌ Handler error:', error);
+                    // Force close Razorpay modal
+                    forceCloseModal();
+                    alert('Payment completed but verification failed. Please contact support with Payment ID: ' + response.razorpay_payment_id);
+                }
             }
         };
         
         // Load Razorpay script if not already loaded
         if (typeof Razorpay !== 'undefined') {
-            const rzp = new Razorpay(options);
-            rzp.open();
+            razorpayInstance = new Razorpay(options);
+            window.razorpay = razorpayInstance; // Store globally for error handlers
+            razorpayInstance.open();
         } else {
             throw new Error('Razorpay script not loaded');
         }
         
     } catch (error) {
         console.error('❌ Error:', error);
-        alert('❌ Error: ' + error.message);
+        
+        // Re-enable submit button
         submitBtn.disabled = false;
         submitBtn.textContent = 'Get the Book';
+        
+        // Enhanced error message
+        let errorMessage = error.message || 'Unknown error occurred';
+        if (error.message && error.message.includes('Server error: 5')) {
+            errorMessage = 'Server temporarily unavailable. Please try again in a moment.';
+        } else if (error.message && error.message.includes('Network')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        alert('❌ Error: ' + errorMessage);
     }
 }
 
@@ -1127,7 +1167,12 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
     try {
         console.log('🔐 Verifying payment...');
         
-        const verifyResponse = await fetch(`${API_URL}/api/payments/verify`, {
+        // Create timeout wrapper (15 seconds max)
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timeout - please check your connection')), 15000)
+        );
+
+        const fetchPromise = fetch(`${API_URL}/api/payments/verify`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1139,13 +1184,27 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
                 order_id: orderId
             })
         });
+
+        // Race between fetch and timeout
+        const verifyResponse = await Promise.race([fetchPromise, timeoutPromise]);
         
         console.log('📡 Verify response status:', verifyResponse.status);
         
         if (!verifyResponse.ok) {
             const errorText = await verifyResponse.text();
             console.error('❌ Server error response:', errorText);
-            throw new Error(`Server error: ${verifyResponse.status} ${verifyResponse.statusText}`);
+            
+            // Better error messages based on status
+            let errorMessage;
+            if (verifyResponse.status === 404) {
+                errorMessage = 'Payment verification service not found. Please contact support.';
+            } else if (verifyResponse.status >= 500) {
+                errorMessage = 'Server temporarily unavailable. Your payment was successful - please contact support.';
+            } else {
+                errorMessage = `Server error: ${verifyResponse.status} ${verifyResponse.statusText}`;
+            }
+            
+            throw new Error(errorMessage);
         }
         
         const verifyData = await verifyResponse.json();
@@ -1156,8 +1215,10 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         
         console.log('✅ Payment verified successfully!');
         
-        // ✅ SEND EMAIL VIA EMAILJS AFTER PAYMENT VERIFIED
-        await sendBookViaEmailJS(email, userName, orderId, amount);
+        // ✅ SEND EMAIL VIA EMAILJS (NON-BLOCKING) - Don't wait for email to complete
+        sendBookViaEmailJS(email, userName, orderId, amount).catch(emailError => {
+            console.warn('📧 Email sending failed but payment succeeded:', emailError);
+        });
         
         // <CHANGE> Get elements with null checks
         const form = document.getElementById('purchase-form');
@@ -1175,12 +1236,26 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
     } catch (error) {
         console.error('❌ Payment verification error:', error);
         
-        // Better error message for users
+        // Force close Razorpay modal
+        if (window.razorpay && window.razorpay.close) {
+            window.razorpay.close();
+        }
+        
+        // Re-enable submit button
+        const submitBtn = document.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Get the Book';
+        }
+        
+        // Better error message for users with payment ID guidance
         let errorMessage = 'Payment verification failed';
-        if (error.message.includes('fetch')) {
-            errorMessage = 'Network error. Please check your internet connection and try again.';
-        } else if (error.message.includes('CORS')) {
-            errorMessage = 'Connection error. Please try again or contact support.';
+        if (error.message.includes('timeout')) {
+            errorMessage = 'Connection timeout. Your payment may have succeeded - please check your email or contact support.';
+        } else if (error.message.includes('fetch')) {
+            errorMessage = 'Network error. Your payment may have succeeded - please check your email or contact support.';
+        } else if (error.message.includes('Server error: 5')) {
+            errorMessage = 'Server temporarily unavailable. Your payment was successful - please contact support for your book.';
         } else {
             errorMessage = error.message;
         }
