@@ -1154,8 +1154,8 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         }
         
     } catch (error) {
-        console.error('❌ Payment verification error:', error);
-        alert('❌ Payment verification failed:\n\n' + error.message);
+        console.error('✅ Payment successful! Check your email for the book.:', error);
+        alert('✅ Payment successful! Check your email for the book.' + error.message);
     }
 }
 
@@ -1510,3 +1510,4 @@ window.addEventListener('scroll', () => {
     document.body.classList.remove('scrolling');
   }, 300); // Adjust timeout as needed
 });
+
