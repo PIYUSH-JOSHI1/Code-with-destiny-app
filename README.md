@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- Animated Header -->
-<img src="bookcover.jpeg" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,12,18,20,24&height=300&section=header&text=Code%20With%20Destiny&fontSize=70&fontColor=8B2500&animation=twinkling&fontAlignY=38&desc=Every%20line%20of%20code%20changed%20my%20destiny&descAlignY=55&descSize=25" width="100%"/>
 
 <!-- 3D Rotating Badge -->
 <picture>
@@ -23,7 +23,7 @@
 
 <!-- 3D Book Cover Animation -->
 <div style="perspective: 1000px; display: inline-block;">
-  <img src="https://raw.githubusercontent.com/yourusername/code-with-destiny/main/cover.jpg" alt="Code With Destiny Book Cover" width="350" style="transform: rotateY(5deg) rotateX(2deg); transition: transform 0.6s; box-shadow: -20px 20px 60px rgba(139, 37, 0, 0.4);" onmouseover="this.style.transform='rotateY(15deg) rotateX(5deg) scale(1.05)'" onmouseout="this.style.transform='rotateY(5deg) rotateX(2deg)'"/>
+  <img src="bookcover.jpeg" alt="Code With Destiny Book Cover" width="350" style="transform: rotateY(5deg) rotateX(2deg); transition: transform 0.6s; box-shadow: -20px 20px 60px rgba(139, 37, 0, 0.4);" onmouseover="this.style.transform='rotateY(15deg) rotateX(5deg) scale(1.05)'" onmouseout="this.style.transform='rotateY(5deg) rotateX(2deg)'"/>
 </div>
 
 <br/><br/>
@@ -210,22 +210,22 @@ impl WellBeing {
 <table>
 <tr>
 <td align="center" width="25%">
-  <img src="https://img.icons8.com/clouds/200/student-male.png" width="80"/>
+  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Student.png" width="80" alt="Engineering Students"/>
   <br/><b>Engineering Students</b>
   <br/><sub>Especially 1st & 2nd year</sub>
 </td>
 <td align="center" width="25%">
-  <img src="https://img.icons8.com/clouds/200/prize.png" width="80"/>
+  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Activities/Trophy.png" width="80" alt="Hackathon Enthusiasts"/>
   <br/><b>Hackathon Enthusiasts</b>
   <br/><sub>Innovators & Problem Solvers</sub>
 </td>
 <td align="center" width="25%">
-  <img src="https://img.icons8.com/clouds/200/mental-health.png" width="80"/>
+  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Face%20with%20Spiral%20Eyes.png" width="80" alt="Struggling Students"/>
   <br/><b>Struggling Students</b>
   <br/><sub>Dealing with pressure & doubt</sub>
 </td>
 <td align="center" width="25%">
-  <img src="https://img.icons8.com/clouds/200/medal.png" width="80"/>
+  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Travel%20and%20places/Rocket.png" width="80" alt="Growth Seekers"/>
   <br/><b>Growth Seekers</b>
   <br/><sub>Who believe in the journey</sub>
 </td>
