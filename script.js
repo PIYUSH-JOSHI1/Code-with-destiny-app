@@ -16,29 +16,8 @@ const EMAILJS_SERVICE_ID = 'service_fg2hujo';
 const EMAILJS_TEMPLATE_ID = 'template_mbbw2cc';
 const EMAILJS_PUBLIC_KEY = 'C-UaBjlMKdLfR-XjR';
 
-// Initialize EmailJS with error handling
-try {
-    emailjs.init(EMAILJS_PUBLIC_KEY);
-    console.log('✅ EmailJS initialized successfully');
-} catch (error) {
-    console.warn('⚠️ EmailJS initialization warning:', error);
-}
-
-// Suppress specific CORS header warnings that don't affect functionality
-const originalConsoleError = console.error;
-console.error = function(...args) {
-    const message = args.join(' ');
-    
-    // Filter out the specific "unsafe header" errors
-    if (message.includes('Refused to get unsafe header') && 
-        message.includes('x-rtb-fingerprint-id')) {
-        console.warn('⚠️ Filtered CORS header warning (non-critical):', message);
-        return;
-    }
-    
-    // Call original console.error for all other errors
-    originalConsoleError.apply(console, args);
-};
+// Initialize EmailJS
+emailjs.init(EMAILJS_PUBLIC_KEY);
 
 // Initialize GSAP plugins
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
@@ -209,9 +188,6 @@ function initializeWebsite() {
     
     // Initialize the image preview (4 pages)
     initializeImagePreview();
-    
-    // Initialize emergency payment controls
-    addEmergencyPaymentControls();
     
     console.log('✨ Website initialized successfully!');
 }
@@ -1020,67 +996,9 @@ function initializeForm() {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
             
-            // Add payment status indicator
-            showPaymentStatus('Creating order...', 'info');
-            
             // Create order via backend
             createOrderViaBackend(name, email, whatsapp, amount, form, successMessage, submitBtn);
         });
-    }
-}
-
-// Payment status indicator
-function showPaymentStatus(message, type = 'info') {
-    // Remove existing status
-    const existingStatus = document.getElementById('payment-status');
-    if (existingStatus) {
-        existingStatus.remove();
-    }
-    
-    // Create new status indicator
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'payment-status';
-    statusDiv.style.cssText = `
-        position: fixed;
-        top: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 15px 25px;
-        border-radius: 25px;
-        color: white;
-        font-weight: bold;
-        z-index: 999998;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        transition: all 0.3s ease;
-        max-width: 90%;
-        text-align: center;
-    `;
-    
-    // Set colors based on type
-    switch(type) {
-        case 'success':
-            statusDiv.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
-            break;
-        case 'error':
-            statusDiv.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
-            break;
-        case 'warning':
-            statusDiv.style.background = 'linear-gradient(135deg, #ff9800, #f57c00)';
-            break;
-        default:
-            statusDiv.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
-    }
-    
-    statusDiv.innerHTML = message;
-    document.body.appendChild(statusDiv);
-    
-    // Auto remove success/error messages after 5 seconds
-    if (type === 'success' || type === 'error') {
-        setTimeout(() => {
-            if (statusDiv && statusDiv.parentNode) {
-                statusDiv.remove();
-            }
-        }, 5000);
     }
 }
 
@@ -1093,8 +1011,6 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Allow-Origin': '*'
             },
             body: JSON.stringify({
                 name: name,
@@ -1102,10 +1018,6 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                 whatsapp: whatsapp,
                 amount: amount
             })
-        }).catch(error => {
-            // Handle network errors including CORS header issues
-            console.warn('⚠️ Network request warning:', error);
-            throw error;
         });
         
         console.log('📡 Order response status:', orderResponse.status);
@@ -1129,16 +1041,13 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
         // If free purchase, send book directly via EmailJS
         if (orderData.is_free) {
             console.log('🎁 Free book - sending via EmailJS');
-            showPaymentStatus('Sending your free book...', 'info');
             await sendBookViaEmailJS(email, name, orderId, 0);
-            showPaymentStatus('✅ Free book sent successfully!', 'success');
             showSuccessMessage(form, successMessage, email, whatsapp, submitBtn);
             return;
         }
         
         // Step 2: Initialize Razorpay payment for paid orders
         console.log('💳 Initializing Razorpay payment...');
-        showPaymentStatus('Opening payment gateway...', 'info');
         
         const options = {
             key: orderData.razorpay_key_id,
@@ -1157,79 +1066,32 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                 color: "#B8462E"
             },
             handler: async function(response) {
-                try {
-                    console.log('✅ Razorpay response:', response);
-                    
-                    // Show processing state
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Verifying Payment...';
-                    showPaymentStatus('Verifying your payment...', 'info');
-                    
-                    // Step 3: Verify payment with backend
-                    await verifyPaymentViaBackend(
-                        response.razorpay_order_id,
-                        response.razorpay_payment_id,
-                        response.razorpay_signature,
-                        orderId,
-                        email,
-                        name,
-                        amount
-                    );
-                    
-                } catch (error) {
-                    console.error('❌ Payment handler error:', error);
-                    showPaymentStatus('❌ Payment verification failed', 'error');
-                    alert('❌ Payment verification failed: ' + error.message);
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Get the Book';
-                }
+                console.log('✅ Razorpay response:', response);
+                
+                // Step 3: Verify payment with backend
+                await verifyPaymentViaBackend(
+                    response.razorpay_order_id,
+                    response.razorpay_payment_id,
+                    response.razorpay_signature,
+                    orderId,
+                    email,
+                    name,
+                    amount
+                );
             },
             modal: {
                 ondismiss: function() {
                     console.log('❌ Payment cancelled by user');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Get the Book';
-                },
-                escape: true,
-                backdrop_close: false,
-                confirm_close: true
-            },
-            // Add timeout handling
-            timeout: 300, // 5 minutes timeout
-            remember_customer: false
+                }
+            }
         };
         
         // Load Razorpay script if not already loaded
         if (typeof Razorpay !== 'undefined') {
             const rzp = new Razorpay(options);
-            
-            // Store reference for emergency closure
-            window.currentRazorpayInstance = rzp;
-            
-            // Add emergency close function
-            window.emergencyClosePayment = function() {
-                try {
-                    if (window.currentRazorpayInstance) {
-                        window.currentRazorpayInstance.close();
-                    }
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Get the Book';
-                    console.log('🚨 Emergency payment modal closure triggered');
-                } catch (e) {
-                    console.error('Emergency close failed:', e);
-                }
-            };
-            
             rzp.open();
-            
-            // Auto-close if stuck after 10 minutes
-            setTimeout(() => {
-                if (window.currentRazorpayInstance) {
-                    console.log('⏰ Auto-closing payment modal after timeout');
-                    window.emergencyClosePayment();
-                }
-            }, 600000); // 10 minutes
-            
         } else {
             throw new Error('Razorpay script not loaded');
         }
@@ -1250,8 +1112,6 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Allow-Origin': '*'
             },
             body: JSON.stringify({
                 razorpay_order_id: razorpayOrderId,
@@ -1259,10 +1119,6 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
                 razorpay_signature: razorpaySignature,
                 order_id: orderId
             })
-        }).catch(error => {
-            // Handle network errors including CORS header issues
-            console.warn('⚠️ Network request warning:', error);
-            throw error;
         });
         
         console.log('📡 Verify response status:', verifyResponse.status);
@@ -1280,82 +1136,60 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         }
         
         console.log('✅ Payment verified successfully!');
-        showPaymentStatus('✅ Payment verified! Sending your book...', 'success');
-        
-        // Force close any Razorpay modal that might be stuck
-        try {
-            if (window.Razorpay && window.Razorpay.close) {
-                window.Razorpay.close();
-            }
-        } catch (e) {
-            console.log('Razorpay close attempt:', e);
-        }
         
         // ✅ SEND EMAIL VIA EMAILJS AFTER PAYMENT VERIFIED
         await sendBookViaEmailJS(email, userName, orderId, amount);
         
-        // <CHANGE> Get elements with null checks
+        // Show success message
         const form = document.getElementById('purchase-form');
         const successMessage = document.getElementById('success-message');
-        const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+        const submitBtn = form.querySelector('button[type="submit"]');
         
-        // <CHANGE> Only call showSuccessMessage if elements exist
-        if (form && successMessage) {
-            showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
-        } else {
-            // Fallback: show alert if DOM elements not found
-            alert('✅ Payment successful! Check your email for the book.');
-        }
+        showSuccessMessage(form, successMessage, email, 'Your WhatsApp', submitBtn);
         
     } catch (error) {
         console.error('❌ Payment verification error:', error);
-        
-        // Show error status
-        showPaymentStatus('❌ Payment verification failed', 'error');
-        
-        // Force close Razorpay modal on error
-        try {
-            if (window.Razorpay && window.Razorpay.close) {
-                window.Razorpay.close();
-            }
-        } catch (e) {
-            console.log('Razorpay close attempt on error:', e);
-        }
-        
-        // Reset button state
-        const form = document.getElementById('purchase-form');
-        const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Get the Book';
-        }
-        
-        alert('❌ Payment verification failed:\n\n' + error.message);
+        alert('❌ Payment verification failed: ' + error.message);
     }
 }
 
-// <CHANGE> Add null checks to showSuccessMessage
+// ✅ NEW FUNCTION: Send book via EmailJS
+async function sendBookViaEmailJS(email, userName, orderId, amount) {
+    try {
+        console.log('📧 Sending book via EmailJS...');
+        
+        const templateParams = {
+            to_email: email,
+            user_name: userName
+        };
+
+        const response = await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams
+        );
+        
+        if (response.status === 200) {
+            console.log('✅ Email sent successfully!');
+            return true;
+        }
+        
+    } catch (error) {
+        console.error('❌ Email error:', error);
+        return false;
+    }
+}
+
 function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn) {
     // Hide form
-    if (form) {
-        form.style.display = 'none';
-    }
+    form.style.display = 'none';
     
     // Show success message
-    if (successMessage) {
-        successMessage.style.display = 'block';
-    }
+    successMessage.style.display = 'block';
     
-    // <CHANGE> Update success message content with null checks
-    const successEmailEl = document.getElementById('success-email');
-    const successWhatsappEl = document.getElementById('success-whatsapp');
-    
-    if (successEmailEl) {
-        successEmailEl.textContent = email;
-    }
-    if (successWhatsappEl) {
-        successWhatsappEl.textContent = '📱 ' + whatsapp;
-    }
+    // Update success message content
+    document.getElementById('success-email').textContent = email;
+    document.getElementById('success-whatsapp').textContent = '📱 ' + whatsapp;
     
     // Add celebration animation
     createCelebrationEffect();
@@ -1568,55 +1402,6 @@ function startFloatingAnimations() {
     });
 }
 
-// EmailJS Functions
-async function sendBookViaEmailJS(email, name, orderId, amount = 0) {
-    try {
-        console.log('📧 Sending book via EmailJS to:', email);
-        
-        // Prepare email parameters
-        const templateParams = {
-            to_email: email,
-            to_name: name,
-            order_id: orderId,
-            amount: amount,
-            book_title: 'Code with Destiny - Tales from the Engineering Trenches',
-            download_message: amount > 0 ? 
-                'Thank you for your purchase! Here is your digital copy of the book.' :
-                'Here is your complimentary copy of the book. We hope you enjoy it!'
-        };
-        
-        console.log('📋 Email template params:', templateParams);
-        
-        // Send email via EmailJS
-        const response = await emailjs.send(
-            EMAILJS_SERVICE_ID,
-            EMAILJS_TEMPLATE_ID,
-            templateParams,
-            EMAILJS_PUBLIC_KEY
-        );
-        
-        console.log('✅ EmailJS response:', response);
-        
-        if (response.status === 200) {
-            console.log('📧 Book sent successfully via EmailJS!');
-            return { success: true, message: 'Book sent successfully!' };
-        } else {
-            throw new Error(`EmailJS returned status: ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ EmailJS error:', error);
-        
-        // Don't throw error for header access issues
-        if (error.message && error.message.includes('unsafe header')) {
-            console.warn('⚠️ EmailJS header access warning (non-critical):', error.message);
-            return { success: true, message: 'Email sent (header warning ignored)' };
-        }
-        
-        throw new Error(`Failed to send email: ${error.message}`);
-    }
-}
-
 // Celebration Effect
 function createCelebrationEffect() {
     const colors = ['#D2691E', '#B8462E', '#DAA520', '#8B4513'];
@@ -1667,114 +1452,9 @@ function debounce(func, wait) {
     };
 }
 
-// Emergency payment modal management
-function addEmergencyPaymentControls() {
-    // Add keyboard shortcut to close stuck payment modal
-    document.addEventListener('keydown', (e) => {
-        // Ctrl + Alt + C to close payment modal
-        if (e.ctrlKey && e.altKey && e.key === 'c') {
-            if (window.emergencyClosePayment) {
-                console.log('🚨 Keyboard shortcut: Closing payment modal');
-                window.emergencyClosePayment();
-            }
-        }
-    });
-    
-    // Add emergency close button (hidden, appears when modal is stuck)
-    const emergencyBtn = document.createElement('button');
-    emergencyBtn.id = 'emergency-close-payment';
-    emergencyBtn.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #ff4444;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        border-radius: 5px;
-        cursor: pointer;
-        z-index: 999999;
-        display: none;
-        font-size: 12px;
-        font-weight: bold;
-    `;
-    emergencyBtn.innerHTML = '✖️ Close Payment';
-    emergencyBtn.onclick = () => {
-        if (window.emergencyClosePayment) {
-            window.emergencyClosePayment();
-            emergencyBtn.style.display = 'none';
-        }
-    };
-    
-    document.body.appendChild(emergencyBtn);
-    
-    // Show emergency button after 30 seconds if payment modal is still open
-    setTimeout(() => {
-        if (window.currentRazorpayInstance) {
-            emergencyBtn.style.display = 'block';
-            console.log('🚨 Emergency close button now visible');
-        }
-    }, 30000);
-    
-    return emergencyBtn;
-}
-
-// CORS-safe fetch wrapper
-async function safeFetch(url, options = {}) {
-    try {
-        // Add CORS headers to help with cross-origin requests
-        const defaultHeaders = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        };
-        
-        const safeOptions = {
-            ...options,
-            headers: {
-                ...defaultHeaders,
-                ...options.headers
-            }
-        };
-        
-        const response = await fetch(url, safeOptions);
-        
-        // Don't try to access potentially unsafe headers
-        console.log(`📡 Request to ${url} completed with status: ${response.status}`);
-        
-        return response;
-        
-    } catch (error) {
-        // Handle network errors gracefully
-        if (error.message.includes('unsafe header') || error.message.includes('CORS')) {
-            console.warn('⚠️ CORS-related warning (non-critical):', error.message);
-            // Return a mock successful response for header access errors
-            throw new Error('Network request failed, but this may be due to browser security restrictions');
-        }
-        throw error;
-    }
-}
-
 // Error Handling
 window.addEventListener('error', (error) => {
     console.error('🚨 Website error:', error);
-    
-    // Filter out CORS header access errors that don't affect functionality
-    if (error.message && error.message.includes('unsafe header')) {
-        console.warn('⚠️ CORS header access warning (non-critical):', error.message);
-        return; // Don't show this error to users
-    }
-});
-
-// Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', (event) => {
-    console.error('🚨 Unhandled promise rejection:', event.reason);
-    
-    // Filter out CORS-related rejections
-    if (event.reason && event.reason.message && event.reason.message.includes('unsafe header')) {
-        console.warn('⚠️ CORS header promise rejection (non-critical):', event.reason.message);
-        event.preventDefault(); // Prevent the error from being logged as uncaught
-        return;
-    }
 });
 
 // Performance Monitoring
@@ -1795,15 +1475,6 @@ console.log(`
 `);
 
 console.log('🎨 Website designed with autumn magic ✨');
-console.log(`
-💡 Payment Modal Stuck? Try these:
-═══════════════════════════════
-1. Press Ctrl + Alt + C
-2. Wait for red "Close Payment" button (top-right)
-3. Run: emergencyClosePayment() in console
-4. Refresh page if needed
-═══════════════════════════════
-`);
 
 // Test function to manually load PDF
 window.testPDFLoad = async function() {
