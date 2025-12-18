@@ -210,6 +210,9 @@ function initializeWebsite() {
     // Initialize the image preview (4 pages)
     initializeImagePreview();
     
+    // Initialize emergency payment controls
+    addEmergencyPaymentControls();
+    
     console.log('✨ Website initialized successfully!');
 }
 
@@ -1017,9 +1020,67 @@ function initializeForm() {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
             
+            // Add payment status indicator
+            showPaymentStatus('Creating order...', 'info');
+            
             // Create order via backend
             createOrderViaBackend(name, email, whatsapp, amount, form, successMessage, submitBtn);
         });
+    }
+}
+
+// Payment status indicator
+function showPaymentStatus(message, type = 'info') {
+    // Remove existing status
+    const existingStatus = document.getElementById('payment-status');
+    if (existingStatus) {
+        existingStatus.remove();
+    }
+    
+    // Create new status indicator
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'payment-status';
+    statusDiv.style.cssText = `
+        position: fixed;
+        top: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 15px 25px;
+        border-radius: 25px;
+        color: white;
+        font-weight: bold;
+        z-index: 999998;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+        max-width: 90%;
+        text-align: center;
+    `;
+    
+    // Set colors based on type
+    switch(type) {
+        case 'success':
+            statusDiv.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+            break;
+        case 'error':
+            statusDiv.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+            break;
+        case 'warning':
+            statusDiv.style.background = 'linear-gradient(135deg, #ff9800, #f57c00)';
+            break;
+        default:
+            statusDiv.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
+    }
+    
+    statusDiv.innerHTML = message;
+    document.body.appendChild(statusDiv);
+    
+    // Auto remove success/error messages after 5 seconds
+    if (type === 'success' || type === 'error') {
+        setTimeout(() => {
+            if (statusDiv && statusDiv.parentNode) {
+                statusDiv.remove();
+            }
+        }, 5000);
     }
 }
 
@@ -1068,13 +1129,16 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
         // If free purchase, send book directly via EmailJS
         if (orderData.is_free) {
             console.log('🎁 Free book - sending via EmailJS');
+            showPaymentStatus('Sending your free book...', 'info');
             await sendBookViaEmailJS(email, name, orderId, 0);
+            showPaymentStatus('✅ Free book sent successfully!', 'success');
             showSuccessMessage(form, successMessage, email, whatsapp, submitBtn);
             return;
         }
         
         // Step 2: Initialize Razorpay payment for paid orders
         console.log('💳 Initializing Razorpay payment...');
+        showPaymentStatus('Opening payment gateway...', 'info');
         
         const options = {
             key: orderData.razorpay_key_id,
@@ -1093,32 +1157,79 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                 color: "#B8462E"
             },
             handler: async function(response) {
-                console.log('✅ Razorpay response:', response);
-                
-                // Step 3: Verify payment with backend
-                await verifyPaymentViaBackend(
-                    response.razorpay_order_id,
-                    response.razorpay_payment_id,
-                    response.razorpay_signature,
-                    orderId,
-                    email,
-                    name,
-                    amount
-                );
+                try {
+                    console.log('✅ Razorpay response:', response);
+                    
+                    // Show processing state
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Verifying Payment...';
+                    showPaymentStatus('Verifying your payment...', 'info');
+                    
+                    // Step 3: Verify payment with backend
+                    await verifyPaymentViaBackend(
+                        response.razorpay_order_id,
+                        response.razorpay_payment_id,
+                        response.razorpay_signature,
+                        orderId,
+                        email,
+                        name,
+                        amount
+                    );
+                    
+                } catch (error) {
+                    console.error('❌ Payment handler error:', error);
+                    showPaymentStatus('❌ Payment verification failed', 'error');
+                    alert('❌ Payment verification failed: ' + error.message);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Get the Book';
+                }
             },
             modal: {
                 ondismiss: function() {
                     console.log('❌ Payment cancelled by user');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Get the Book';
-                }
-            }
+                },
+                escape: true,
+                backdrop_close: false,
+                confirm_close: true
+            },
+            // Add timeout handling
+            timeout: 300, // 5 minutes timeout
+            remember_customer: false
         };
         
         // Load Razorpay script if not already loaded
         if (typeof Razorpay !== 'undefined') {
             const rzp = new Razorpay(options);
+            
+            // Store reference for emergency closure
+            window.currentRazorpayInstance = rzp;
+            
+            // Add emergency close function
+            window.emergencyClosePayment = function() {
+                try {
+                    if (window.currentRazorpayInstance) {
+                        window.currentRazorpayInstance.close();
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Get the Book';
+                    console.log('🚨 Emergency payment modal closure triggered');
+                } catch (e) {
+                    console.error('Emergency close failed:', e);
+                }
+            };
+            
             rzp.open();
+            
+            // Auto-close if stuck after 10 minutes
+            setTimeout(() => {
+                if (window.currentRazorpayInstance) {
+                    console.log('⏰ Auto-closing payment modal after timeout');
+                    window.emergencyClosePayment();
+                }
+            }, 600000); // 10 minutes
+            
         } else {
             throw new Error('Razorpay script not loaded');
         }
@@ -1169,6 +1280,16 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         }
         
         console.log('✅ Payment verified successfully!');
+        showPaymentStatus('✅ Payment verified! Sending your book...', 'success');
+        
+        // Force close any Razorpay modal that might be stuck
+        try {
+            if (window.Razorpay && window.Razorpay.close) {
+                window.Razorpay.close();
+            }
+        } catch (e) {
+            console.log('Razorpay close attempt:', e);
+        }
         
         // ✅ SEND EMAIL VIA EMAILJS AFTER PAYMENT VERIFIED
         await sendBookViaEmailJS(email, userName, orderId, amount);
@@ -1188,6 +1309,27 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         
     } catch (error) {
         console.error('❌ Payment verification error:', error);
+        
+        // Show error status
+        showPaymentStatus('❌ Payment verification failed', 'error');
+        
+        // Force close Razorpay modal on error
+        try {
+            if (window.Razorpay && window.Razorpay.close) {
+                window.Razorpay.close();
+            }
+        } catch (e) {
+            console.log('Razorpay close attempt on error:', e);
+        }
+        
+        // Reset button state
+        const form = document.getElementById('purchase-form');
+        const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Get the Book';
+        }
+        
         alert('❌ Payment verification failed:\n\n' + error.message);
     }
 }
@@ -1525,6 +1667,58 @@ function debounce(func, wait) {
     };
 }
 
+// Emergency payment modal management
+function addEmergencyPaymentControls() {
+    // Add keyboard shortcut to close stuck payment modal
+    document.addEventListener('keydown', (e) => {
+        // Ctrl + Alt + C to close payment modal
+        if (e.ctrlKey && e.altKey && e.key === 'c') {
+            if (window.emergencyClosePayment) {
+                console.log('🚨 Keyboard shortcut: Closing payment modal');
+                window.emergencyClosePayment();
+            }
+        }
+    });
+    
+    // Add emergency close button (hidden, appears when modal is stuck)
+    const emergencyBtn = document.createElement('button');
+    emergencyBtn.id = 'emergency-close-payment';
+    emergencyBtn.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ff4444;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 999999;
+        display: none;
+        font-size: 12px;
+        font-weight: bold;
+    `;
+    emergencyBtn.innerHTML = '✖️ Close Payment';
+    emergencyBtn.onclick = () => {
+        if (window.emergencyClosePayment) {
+            window.emergencyClosePayment();
+            emergencyBtn.style.display = 'none';
+        }
+    };
+    
+    document.body.appendChild(emergencyBtn);
+    
+    // Show emergency button after 30 seconds if payment modal is still open
+    setTimeout(() => {
+        if (window.currentRazorpayInstance) {
+            emergencyBtn.style.display = 'block';
+            console.log('🚨 Emergency close button now visible');
+        }
+    }, 30000);
+    
+    return emergencyBtn;
+}
+
 // CORS-safe fetch wrapper
 async function safeFetch(url, options = {}) {
     try {
@@ -1601,6 +1795,15 @@ console.log(`
 `);
 
 console.log('🎨 Website designed with autumn magic ✨');
+console.log(`
+💡 Payment Modal Stuck? Try these:
+═══════════════════════════════
+1. Press Ctrl + Alt + C
+2. Wait for red "Close Payment" button (top-right)
+3. Run: emergencyClosePayment() in console
+4. Refresh page if needed
+═══════════════════════════════
+`);
 
 // Test function to manually load PDF
 window.testPDFLoad = async function() {
