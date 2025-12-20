@@ -1262,8 +1262,8 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                     
                 } catch (error) {
                     console.error('❌ Payment handler error:', error);
-                    showPaymentStatus('❌ Verification failed', 'error');
-                    alert('Payment verification failed: ' + error.message);
+                  
+                   
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Get the Book';
                 }
@@ -1881,3 +1881,4 @@ window.addEventListener('scroll', () => {
     document.body.classList.remove('scrolling');
   }, 300); // Adjust timeout as needed
 });
+
