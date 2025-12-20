@@ -1349,41 +1349,61 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
 
 // <CHANGE> Add null checks to showSuccessMessage
 function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn) {
-    // Hide form
-    if (form) {
-        form.style.display = 'none';
+    try {
+        // Hide form
+        if (form) {
+            form.style.display = 'none';
+        }
+        
+        // Show success message
+        if (successMessage) {
+            successMessage.style.display = 'block';
+        }
+        
+        // <CHANGE> Update success message content with null checks
+        const successEmailEl = document.getElementById('success-email');
+        const successWhatsappEl = document.getElementById('success-whatsapp');
+        
+        if (successEmailEl) {
+            try {
+                successEmailEl.textContent = email;
+            } catch (e) {
+                console.warn('⚠️ Could not set email text:', e);
+            }
+        }
+        if (successWhatsappEl) {
+            try {
+                successWhatsappEl.textContent = '📱 ' + whatsapp;
+            } catch (e) {
+                console.warn('⚠️ Could not set whatsapp text:', e);
+            }
+        }
+        
+        // Add celebration animation
+        createCelebrationEffect();
+        
+        console.log('✨ Purchase complete!');
+    } catch (error) {
+        console.error('❌ Error in showSuccessMessage:', error);
+        // Still show basic success even if elements fail
+        alert('✅ Payment successful! Email has been sent to ' + email);
     }
-    
-    // Show success message
-    if (successMessage) {
-        successMessage.style.display = 'block';
-    }
-    
-    // <CHANGE> Update success message content with null checks
-    const successEmailEl = document.getElementById('success-email');
-    const successWhatsappEl = document.getElementById('success-whatsapp');
-    
-    if (successEmailEl) {
-        successEmailEl.textContent = email;
-    }
-    if (successWhatsappEl) {
-        successWhatsappEl.textContent = '📱 ' + whatsapp;
-    }
-    
-    // Add celebration animation
-    createCelebrationEffect();
-    
-    console.log('✨ Purchase complete!');
 }
 
 function initializeAmountButtons() {
     const amountButtons = document.querySelectorAll('.amount-btn');
     const amountInput = document.getElementById('amount');
     
-    amountButtons.forEach(button => {
+    console.log(`📊 Found ${amountButtons.length} amount buttons`);
+    
+    amountButtons.forEach((button, index) => {
+        const amount = button.dataset.amount;
+        console.log(`Button ${index + 1}: ₹${amount}`);
+        
         button.addEventListener('click', () => {
-            const amount = button.dataset.amount;
-            amountInput.value = amount;
+            const selectedAmount = button.dataset.amount;
+            amountInput.value = selectedAmount;
+            console.log(`💰 Amount selected: ₹${selectedAmount}`);
             
             // Remove active class from all buttons
             amountButtons.forEach(btn => btn.classList.remove('active'));
