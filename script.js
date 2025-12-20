@@ -1256,8 +1256,8 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                         amount
                     );
                     
-                    // Show success
-                    showPaymentStatus('✅ Payment verified!', 'success');
+                    // Show success - email is already sent by backend
+                    showPaymentStatus('✅ Payment verified and email sent!', 'success');
                     showSuccessMessage(form, successMessage, email, whatsapp, submitBtn);
                     
                 } catch (error) {
@@ -1336,9 +1336,8 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
         }
         
         console.log('✅ Payment verified!');
-        
-        // Send book via EmailJS
-        await sendBookViaEmailJS(email, userName, orderId, amount);
+        // ✅ FIXED: Removed redundant sendBookViaEmailJS() - backend already sends email after payment verification
+        // This was causing the window to hang when EmailJS had issues
         
         return verifyData;
         
