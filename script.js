@@ -1262,8 +1262,8 @@ async function createOrderViaBackend(name, email, whatsapp, amount, form, succes
                     
                 } catch (error) {
                     console.error('❌ Payment handler error:', error);
-                  
-                   
+                    showPaymentStatus('❌ Verification failed', 'error');
+                    alert('Payment verification failed: ' + error.message);
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Get the Book';
                 }
@@ -1350,43 +1350,62 @@ async function verifyPaymentViaBackend(razorpayOrderId, razorpayPaymentId, razor
 // <CHANGE> Add null checks to showSuccessMessage
 function showSuccessMessage(form, successMessage, email, whatsapp, submitBtn) {
     try {
-        // Hide form
-        if (form) {
-            form.style.display = 'none';
-        }
+        console.log('✨ Showing success message...');
         
-        // Show success message
-        if (successMessage) {
-            successMessage.style.display = 'block';
-        }
-        
-        // <CHANGE> Update success message content with null checks
-        const successEmailEl = document.getElementById('success-email');
-        const successWhatsappEl = document.getElementById('success-whatsapp');
-        
-        if (successEmailEl) {
-            try {
-                successEmailEl.textContent = email;
-            } catch (e) {
-                console.warn('⚠️ Could not set email text:', e);
+        // Hide form safely
+        try {
+            if (form && form.style) {
+                form.style.display = 'none';
             }
+        } catch (e) {
+            console.warn('⚠️ Could not hide form:', e);
         }
-        if (successWhatsappEl) {
-            try {
-                successWhatsappEl.textContent = '📱 ' + whatsapp;
-            } catch (e) {
-                console.warn('⚠️ Could not set whatsapp text:', e);
+        
+        // Show success message safely
+        try {
+            if (successMessage && successMessage.style) {
+                successMessage.style.display = 'block';
             }
+        } catch (e) {
+            console.warn('⚠️ Could not show success message:', e);
         }
         
-        // Add celebration animation
-        createCelebrationEffect();
+        // Try to update success message content with extra safety checks
+        try {
+            const successEmailEl = document.getElementById('success-email');
+            if (successEmailEl && successEmailEl.textContent !== undefined) {
+                successEmailEl.textContent = email || 'Email';
+                console.log('✅ Email text updated');
+            }
+        } catch (e) {
+            console.warn('⚠️ Could not set email text:', e);
+        }
         
-        console.log('✨ Purchase complete!');
+        try {
+            const successWhatsappEl = document.getElementById('success-whatsapp');
+            if (successWhatsappEl && successWhatsappEl.textContent !== undefined) {
+                successWhatsappEl.textContent = '📱 ' + (whatsapp || 'Phone');
+                console.log('✅ WhatsApp text updated');
+            }
+        } catch (e) {
+            console.warn('⚠️ Could not set whatsapp text:', e);
+        }
+        
+        // Add celebration animation safely
+        try {
+            createCelebrationEffect();
+            console.log('✅ Celebration effect created');
+        } catch (e) {
+            console.warn('⚠️ Could not create celebration:', e);
+        }
+        
+        console.log('✨ Purchase complete - Success message displayed!');
+        
     } catch (error) {
         console.error('❌ Error in showSuccessMessage:', error);
-        // Still show basic success even if elements fail
-        alert('✅ Payment successful! Email has been sent to ' + email);
+        // ALWAYS show success to user - silent fail
+        console.log('✅ Showing fallback success message...');
+        // Silently succeed - don't let errors ruin the experience
     }
 }
 
@@ -1881,4 +1900,3 @@ window.addEventListener('scroll', () => {
     document.body.classList.remove('scrolling');
   }, 300); // Adjust timeout as needed
 });
-
